@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CampClavie Message</title>
+<style>
+  body { font-family: sans-serif; text-align: center; margin: 0; padding: 50px 16px; background: #111; color: #eee; }
+  input[type=text] { width: 85%; max-width: 420px; padding: 12px; font-size: 16px; border-radius: 8px; border: 1px solid #444; background: #222; color: #eee; }
+  button { padding: 12px 28px; font-size: 16px; border: 0; border-radius: 8px; background: #3b82f6; color: #fff; cursor: pointer; }
+  button:disabled { background: #555; cursor: not-allowed; }
+  #count { margin-top: 8px; font-size: 13px; color: #888; }
+  #status { margin-top: 20px; color: #999; }
+</style>
+</head>
+<body>
+  <h2>Send a Message to the Screen</h2>
+  <input id="msg" type="text" maxlength="120" placeholder="Type your message here" autocomplete="off">
+  <div id="count">0 / 120</div>
+  <br>
+  <button id="sendBtn" disabled>Send</button>
+  <div id="status">Connecting...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+  // ---- FILL THESE IN ----
+  const HOST  = "abc123.s1.eu.hivemq.cloud";   // your EMQX deployment address
+  const USER  = "web";                         // web credential
+  const PASS  = "webs3";
+  const TOPIC = "campclavie/x7k2q9m4/msg";     // must match the ESP32 sketch
+  // -----------------------
+
+  const msgEl = document.getElementById("msg");
+  const btn = document.getElementById("sendBtn");
+  const status = document.getElementById("status");
+  const count = document.getElementById("count");
+
+  const client = mqtt.connect(`wss://${HOST}:8084/mqtt`, {
+    username: USER,
+    password: PASS,
+    reconnectPeriod: 3000
+  });
+
+  client.on("connect", () => { status.textContent = "Connected"; btn.disabled = false; });
+  client.on("reconnect", () => { status.textContent = "Reconnecting..."; btn.disabled = true; });
+  client.on("close", () => { status.textContent = "Disconnected, retrying..."; btn.disabled = true; });
+  client.on("error", (e) => { status.textContent = "Error: " + e.message; });
+
+  function send() {
+    const text = msgEl.value.trim();
+    if (!text || !client.connected) return;
+    client.publish(TOPIC, text, { qos: 1, retain: true }, (err) => {
+      status.textContent = err ? "Failed to send" : "Sent: " + text;
+    });
+    msgEl.value = "";
+    count.textContent = "0 / 120";
+  }
+
+  btn.addEventListener("click", send);
+  msgEl.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  msgEl.addEventListener("input", () => { count.textContent = msgEl.value.length + " / 120"; });
+</script>
+</body>
+</html>
